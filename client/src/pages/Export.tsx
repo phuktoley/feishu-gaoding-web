@@ -31,13 +31,16 @@ export default function Export() {
       return;
     }
 
-    // 生成 CSV
-    const headers = ["序号", "主标题", "副标题", "记录ID"];
+    // 生成稿定设计格式的 CSV
+    // 表头：页面, 文本_1, 文本_2
+    // 页面 = 序号 (1, 2, 3...)
+    // 文本_1 = 主标题
+    // 文本_2 = 副标题
+    const headers = ["页面", "文本_1", "文本_2"];
     const rows = recordsData.records.map((record, index) => [
-      index + 1,
-      record.mainTitle || "",
-      record.subTitle || "",
-      record.recordId,
+      index + 1,  // 页面：序号
+      record.mainTitle || "",  // 文本_1：主标题
+      record.subTitle || "",   // 文本_2：副标题
     ]);
 
     const csvContent = [
@@ -52,7 +55,7 @@ export default function Export() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `feishu_data_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `稿定设计-数据上传_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -87,7 +90,7 @@ export default function Export() {
               disabled={!recordsData?.records.length}
             >
               <Download className="mr-2 h-4 w-4" />
-              导出 CSV
+              导出稿定格式
             </Button>
           </div>
         </div>
@@ -125,10 +128,9 @@ export default function Export() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">序号</TableHead>
-                      <TableHead>主标题</TableHead>
-                      <TableHead>副标题</TableHead>
-                      <TableHead className="w-32">记录 ID</TableHead>
+                      <TableHead className="w-16">页面</TableHead>
+                      <TableHead>文本_1 (主标题)</TableHead>
+                      <TableHead>文本_2 (副标题)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -138,9 +140,6 @@ export default function Export() {
                         <TableCell>{record.mainTitle || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {record.subTitle || "-"}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {record.recordId.slice(0, 8)}...
                         </TableCell>
                       </TableRow>
                     ))}
@@ -167,15 +166,15 @@ export default function Export() {
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="font-medium mb-2">1. 导出数据到稿定设计</h4>
                 <p className="text-sm text-muted-foreground">
-                  点击"导出 CSV"按钮，将数据下载为 CSV 文件。
-                  然后在稿定设计的批量套版功能中上传此文件。
+                  点击"导出稿定格式"按钮，将数据下载为稿定设计专用的 CSV 文件。
+                  格式：页面、文本_1（主标题）、文本_2（副标题）。
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="font-medium mb-2">2. 在稿定设计生成图片</h4>
                 <p className="text-sm text-muted-foreground">
-                  选择模板，映射字段，生成图片。
-                  完成后下载 ZIP 文件。
+                  在稿定设计的批量套版功能中上传 CSV 文件，
+                  映射字段后生成图片，完成后下载 ZIP 文件。
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
@@ -186,10 +185,10 @@ export default function Export() {
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
-                <h4 className="font-medium mb-2">注意事项</h4>
+                <h4 className="font-medium mb-2">稿定设计格式说明</h4>
                 <p className="text-sm text-muted-foreground">
-                  请确保稿定设计生成的图片顺序与飞书记录顺序一致，
-                  系统会按顺序匹配图片和记录。
+                  导出的 CSV 文件符合稿定设计批量套版的标准格式：
+                  页面（序号）、文本_1（主标题）、文本_2（副标题）。
                 </p>
               </div>
             </div>
