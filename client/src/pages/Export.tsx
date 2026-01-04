@@ -13,6 +13,18 @@ import {
 import { trpc } from "@/lib/trpc";
 import { AlertCircle, Download, FileSpreadsheet, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import JSZip from "jszip";
+
+// 稿定设计模板的警告说明文字
+const GAODING_WARNING_TEXT = `⚠️填写需知：
+1. 每一行表格的内容将填充成一份设计结果；
+2. 请不要增加 ，删除，修改表头内容，避免Excel无法导入成功；
+3. 请不要合并、拆分单元格，避免Excel无法导入成功；
+4. 请将用到的图片文件与Excel放在同一个文件夹中，打成压缩包后上传；
+5. 图片仅需填写文件名，无需填写图片后缀，但请确保图片文件名不重复；
+6. 请注意文案的内容输入字数，过多的字数将会导致排版时溢出；
+7. 当前批量套版仅支持最多148行数据；`;
 
 export default function Export() {
   const { data: config } = trpc.feishuConfig.get.useQuery();
@@ -25,41 +37,93 @@ export default function Export() {
     enabled: !!config,
   });
 
-  const handleExportCSV = () => {
+  const handleExportZip = async () => {
     if (!recordsData?.records.length) {
       toast.error("没有数据可导出");
       return;
     }
 
-    // 生成稿定设计格式的 CSV
-    // 表头：页面, 文本_1, 文本_2
-    // 页面 = 序号 (1, 2, 3...)
-    // 文本_1 = 主标题
-    // 文本_2 = 副标题
-    const headers = ["页面", "文本_1", "文本_2"];
-    const rows = recordsData.records.map((record, index) => [
-      index + 1,  // 页面：序号
-      record.mainTitle || "",  // 文本_1：主标题
-      record.subTitle || "",   // 文本_2：副标题
-    ]);
+    try {
+      // 创建工作簿
+      const wb = XLSX.utils.book_new();
+      
+      // 准备数据：第一行是警告说明，第二行是表头，后面是数据
+      const wsData: (string | null)[][] = [];
+      
+      // 第一行：警告说明（只在 A1，其他为 null）
+      const warningRow: (string | null)[] = [GAODING_WARNING_TEXT];
+      for (let i = 1; i < 26; i++) {
+        warningRow.push(null);
+      }
+      wsData.push(warningRow);
+      
+      // 第二行：表头
+      const headerRow: (string | null)[] = ["页面", "文本_1", "文本_2"];
+      for (let i = 3; i < 26; i++) {
+        headerRow.push(null);
+      }
+      wsData.push(headerRow);
+      
+      // 数据行
+      recordsData.records.forEach((record, index) => {
+        const dataRow: (string | null)[] = [
+          `页面${index + 1}`,  // 页面：页面1, 页面2, ...
+          record.mainTitle || "",  // 文本_1：主标题
+          record.subTitle || "",   // 文本_2：副标题
+        ];
+        for (let i = 3; i < 26; i++) {
+          dataRow.push(null);
+        }
+        wsData.push(dataRow);
+      });
+      
+      // 创建工作表
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      
+      // 设置合并单元格：A1:Z1
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 25 } }  // A1:Z1
+      ];
+      
+      // 设置列宽
+      ws["!cols"] = [
+        { wch: 15 },  // A 列（页面）
+        { wch: 30 },  // B 列（文本_1）
+        { wch: 30 },  // C 列（文本_2）
+      ];
+      
+      // 设置行高
+      ws["!rows"] = [
+        { hpt: 120 },  // 第一行（警告说明）高度
+        { hpt: 20 },   // 第二行（表头）
+      ];
+      
+      // 添加工作表到工作簿，使用稿定设计的 sheet 名称
+      XLSX.utils.book_append_sheet(wb, ws, "文案表（横版）");
+      
+      // 生成 XLSX 文件的二进制数据
+      const xlsxData = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      
+      // 创建 ZIP 文件
+      const zip = new JSZip();
+      zip.file("稿定设计-数据上传.xlsx", xlsxData);
+      
+      // 生成 ZIP 文件
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      
+      // 下载
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `稿定设计-数据上传_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
-      ),
-    ].join("\n");
-
-    // 下载
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `稿定设计-数据上传_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.success("导出成功");
+      toast.success("导出成功");
+    } catch (error) {
+      console.error("导出失败:", error);
+      toast.error("导出失败，请重试");
+    }
   };
 
   return (
@@ -86,7 +150,7 @@ export default function Export() {
               刷新
             </Button>
             <Button
-              onClick={handleExportCSV}
+              onClick={handleExportZip}
               disabled={!recordsData?.records.length}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -136,7 +200,7 @@ export default function Export() {
                   <TableBody>
                     {recordsData.records.map((record, index) => (
                       <TableRow key={record.recordId}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell className="font-medium">页面{index + 1}</TableCell>
                         <TableCell>{record.mainTitle || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {record.subTitle || "-"}
@@ -166,14 +230,14 @@ export default function Export() {
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="font-medium mb-2">1. 导出数据到稿定设计</h4>
                 <p className="text-sm text-muted-foreground">
-                  点击"导出稿定格式"按钮，将数据下载为稿定设计专用的 CSV 文件。
+                  点击"导出稿定格式"按钮，将数据下载为 ZIP 压缩包，内含稿定设计专用的 XLSX 文件。
                   格式：页面、文本_1（主标题）、文本_2（副标题）。
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="font-medium mb-2">2. 在稿定设计生成图片</h4>
                 <p className="text-sm text-muted-foreground">
-                  在稿定设计的批量套版功能中上传 CSV 文件，
+                  在稿定设计的批量套版功能中上传 ZIP 文件，
                   映射字段后生成图片，完成后下载 ZIP 文件。
                 </p>
               </div>
@@ -187,8 +251,8 @@ export default function Export() {
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="font-medium mb-2">稿定设计格式说明</h4>
                 <p className="text-sm text-muted-foreground">
-                  导出的 CSV 文件符合稿定设计批量套版的标准格式：
-                  页面（序号）、文本_1（主标题）、文本_2（副标题）。
+                  导出的 ZIP 文件包含符合稿定设计批量套版标准格式的 XLSX 文件：
+                  页面（页面1、页面2...）、文本_1（主标题）、文本_2（副标题）。
                 </p>
               </div>
             </div>
