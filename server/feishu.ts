@@ -135,10 +135,16 @@ export class FeishuBitableAPI {
   }
 
   /**
-   * 上传图片到飞书
+   * 上传图片到飞书多维表格
+   * 注意：需要应用有 drive:drive:media 权限
    */
   async uploadImage(fileBuffer: Buffer, fileName: string): Promise<string> {
     const url = "https://open.feishu.cn/open-apis/drive/v1/medias/upload_all";
+
+    // 确保 token 有效
+    if (!this.token) {
+      await this.getTenantAccessToken();
+    }
 
     const FormData = (await import("form-data")).default;
     const formData = new FormData();
@@ -148,18 +154,40 @@ export class FeishuBitableAPI {
     formData.append("size", fileBuffer.length.toString());
     formData.append("file", fileBuffer, { filename: fileName });
 
-    const headers = await this.getHeaders();
-    const response = await axios.post(url, formData, {
-      headers: {
-        Authorization: headers.Authorization,
-        ...formData.getHeaders(),
-      },
-    });
+    console.log(`[飞书上传] 开始上传图片: ${fileName}, 大小: ${fileBuffer.length} 字节`);
+    console.log(`[飞书上传] parent_node (appToken): ${this.credentials.appToken}`);
 
-    if (response.data.code === 0) {
-      return response.data.data?.file_token;
-    } else {
-      throw new Error(`上传图片失败: ${JSON.stringify(response.data)}`);
+    try {
+      const headers = await this.getHeaders();
+      const response = await axios.post(url, formData, {
+        headers: {
+          Authorization: headers.Authorization,
+          ...formData.getHeaders(),
+        },
+        timeout: 60000, // 60秒超时
+      });
+
+      console.log(`[飞书上传] 响应: ${JSON.stringify(response.data)}`);
+
+      if (response.data.code === 0) {
+        const fileToken = response.data.data?.file_token;
+        console.log(`[飞书上传] 上传成功, file_token: ${fileToken}`);
+        return fileToken;
+      } else {
+        // 详细的错误信息
+        const errorMsg = `上传图片失败 [code: ${response.data.code}]: ${response.data.msg || JSON.stringify(response.data)}`;
+        console.error(`[飞书上传] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+    } catch (error: any) {
+      // 处理网络错误或其他异常
+      if (error.response) {
+        const errorMsg = `上传图片HTTP错误 [${error.response.status}]: ${JSON.stringify(error.response.data)}`;
+        console.error(`[飞书上传] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+      console.error(`[飞书上传] 上传异常: ${error.message}`);
+      throw error;
     }
   }
 

@@ -40,8 +40,8 @@ export default function Export() {
         text2: record.subTitle || "",
       }));
 
-      // 使用新的稿定设计格式生成 ZIP
-      const zipBlob = await createGaodingZip(data, ["页面", "文本_1"]);
+      // 使用新的稿定设计格式生成 ZIP（包含页面、文本_1、文本_2三列）
+      const zipBlob = await createGaodingZip(data, ["页面", "文本_1", "文本_2"]);
 
       // 下载
       const url = URL.createObjectURL(zipBlob);

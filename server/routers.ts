@@ -148,17 +148,30 @@ export const appRouter = router({
 
         const results: { recordId: string; success: boolean; error?: string }[] = [];
 
+        console.log(`[上传图片] 开始上传 ${input.images.length} 张图片`);
+        console.log(`[上传图片] 目标字段: ${config.imageFieldName || "封面图片"}`);
+
         for (const img of input.images) {
           try {
+            console.log(`[上传图片] 处理图片: ${img.fileName}, recordId: ${img.recordId}`);
+            
             const buffer = Buffer.from(img.imageData, "base64");
+            console.log(`[上传图片] 图片大小: ${buffer.length} 字节`);
+            
+            // 第一步：上传图片获取 file_token
             const fileToken = await api.uploadImage(buffer, img.fileName);
+            console.log(`[上传图片] 获取到 file_token: ${fileToken}`);
 
+            // 第二步：更新记录
+            const fieldName = config.imageFieldName || "封面图片";
             await api.updateRecord(img.recordId, {
-              [config.imageFieldName || "封面图片"]: [{ file_token: fileToken }],
+              [fieldName]: [{ file_token: fileToken }],
             });
+            console.log(`[上传图片] 记录更新成功: ${img.recordId}`);
 
             results.push({ recordId: img.recordId, success: true });
           } catch (error: any) {
+            console.error(`[上传图片] 失败: ${img.fileName}, 错误: ${error.message}`);
             results.push({
               recordId: img.recordId,
               success: false,
@@ -166,6 +179,8 @@ export const appRouter = router({
             });
           }
         }
+
+        console.log(`[上传图片] 完成，成功: ${results.filter((r) => r.success).length}, 失败: ${results.filter((r) => !r.success).length}`);
 
         return {
           total: input.images.length,
