@@ -113,32 +113,70 @@ preDeployCommand = "pnpm db:push"
 5. 上传 ZIP 文件，系统解析并提取图片
 6. 将图片回传到飞书多维表格
 
-## 待解决问题
+## 已解决问题
 
-### 问题 1: 数据库迁移
+### 问题 1: 数据库迁移 ✅ 已修复
 - **状态**: 已添加 `preDeployCommand` 到 `railway.toml`
-- **等待**: Railway 重新部署以执行迁移
+- **结果**: Railway 部署时自动执行数据库迁移
 
-### 问题 2: 默认用户 ID
-- **当前实现**: 使用固定的访客用户 (id=1)
-- **潜在问题**: 如果数据库中没有 id=1 的用户，查询会失败
-- **建议修复**: 在保存配置前确保用户存在
+### 问题 2: 默认用户 ID ✅ 已修复
+- **原实现**: 使用固定的访客用户 (id=1)
+- **问题**: 如果数据库中没有 id=1 的用户，查询会失败
+- **修复**: 在 `context.ts` 中添加自动创建用户的逻辑
 
-## 修复建议
+## 最终修复代码
 
-如果数据库迁移后仍有问题，需要检查：
-
-1. 确保 `users` 表中有 id=1 的用户
-2. 或者修改 `context.ts` 中的默认用户逻辑，在数据库中创建用户
+### context.ts 修复
 
 ```typescript
-// 在 context.ts 中，可以添加自动创建用户的逻辑
-import { upsertUser } from '../db';
+import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import type { User } from "../../drizzle/schema";
+import { sdk } from "./sdk";
+import { upsertUser, getUserByOpenId } from "../db";
 
-// 在提供默认用户后，确保用户存在于数据库
-await upsertUser({
-  openId: "guest",
-  name: "Guest User",
-  email: "guest@example.com",
-});
+export async function createContext(
+  opts: CreateExpressContextOptions
+): Promise<TrpcContext> {
+  let user: User | null = null;
+
+  try {
+    user = await sdk.authenticateRequest(opts.req);
+  } catch (error) {
+    // 确保访客用户存在于数据库
+    try {
+      await upsertUser({
+        openId: "guest",
+        name: "Guest User",
+        email: "guest@example.com",
+        role: "admin",
+        loginMethod: "guest",
+      });
+      
+      // 从数据库获取实际用户 ID
+      const dbUser = await getUserByOpenId("guest");
+      if (dbUser) {
+        user = dbUser;
+      }
+    } catch (dbError) {
+      // 回退到默认用户
+      user = { id: 1, openId: "guest", ... };
+    }
+  }
+
+  return { req: opts.req, res: opts.res, user };
+}
+```
+
+### railway.toml 修复
+
+```toml
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm build"
+
+[deploy]
+startCommand = "pnpm start"
+preDeployCommand = "pnpm db:push"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
 ```
