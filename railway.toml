@@ -4,5 +4,6 @@ buildCommand = "pnpm install && pnpm build"
 
 [deploy]
 startCommand = "pnpm start"
+preDeployCommand = "pnpm db:push"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
