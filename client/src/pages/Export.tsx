@@ -11,20 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { trpc } from "@/lib/trpc";
+import { createGaodingZip } from "@/lib/gaodingXlsx";
 import { AlertCircle, Download, FileSpreadsheet, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
-import JSZip from "jszip";
-
-// 稿定设计模板的警告说明文字
-const GAODING_WARNING_TEXT = `⚠️填写需知：
-1. 每一行表格的内容将填充成一份设计结果；
-2. 请不要增加 ，删除，修改表头内容，避免Excel无法导入成功；
-3. 请不要合并、拆分单元格，避免Excel无法导入成功；
-4. 请将用到的图片文件与Excel放在同一个文件夹中，打成压缩包后上传；
-5. 图片仅需填写文件名，无需填写图片后缀，但请确保图片文件名不重复；
-6. 请注意文案的内容输入字数，过多的字数将会导致排版时溢出；
-7. 当前批量套版仅支持最多148行数据；`;
 
 export default function Export() {
   const { data: config } = trpc.feishuConfig.get.useQuery();
@@ -44,73 +33,16 @@ export default function Export() {
     }
 
     try {
-      // 创建工作簿
-      const wb = XLSX.utils.book_new();
-      
-      // 准备数据：第一行是警告说明，第二行是表头，后面是数据
-      const wsData: (string | null)[][] = [];
-      
-      // 第一行：警告说明（只在 A1，其他为 null）
-      const warningRow: (string | null)[] = [GAODING_WARNING_TEXT];
-      for (let i = 1; i < 26; i++) {
-        warningRow.push(null);
-      }
-      wsData.push(warningRow);
-      
-      // 第二行：表头
-      const headerRow: (string | null)[] = ["页面", "文本_1", "文本_2"];
-      for (let i = 3; i < 26; i++) {
-        headerRow.push(null);
-      }
-      wsData.push(headerRow);
-      
-      // 数据行
-      recordsData.records.forEach((record, index) => {
-        const dataRow: (string | null)[] = [
-          `页面${index + 1}`,  // 页面：页面1, 页面2, ...
-          record.mainTitle || "",  // 文本_1：主标题
-          record.subTitle || "",   // 文本_2：副标题
-        ];
-        for (let i = 3; i < 26; i++) {
-          dataRow.push(null);
-        }
-        wsData.push(dataRow);
-      });
-      
-      // 创建工作表
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      
-      // 设置合并单元格：A1:Z1
-      ws["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 25 } }  // A1:Z1
-      ];
-      
-      // 设置列宽
-      ws["!cols"] = [
-        { wch: 15 },  // A 列（页面）
-        { wch: 30 },  // B 列（文本_1）
-        { wch: 30 },  // C 列（文本_2）
-      ];
-      
-      // 设置行高
-      ws["!rows"] = [
-        { hpt: 120 },  // 第一行（警告说明）高度
-        { hpt: 20 },   // 第二行（表头）
-      ];
-      
-      // 添加工作表到工作簿，使用稿定设计的 sheet 名称
-      XLSX.utils.book_append_sheet(wb, ws, "文案表（横版）");
-      
-      // 生成 XLSX 文件的二进制数据
-      const xlsxData = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      
-      // 创建 ZIP 文件
-      const zip = new JSZip();
-      zip.file("稿定设计-数据上传.xlsx", xlsxData);
-      
-      // 生成 ZIP 文件
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      
+      // 准备数据
+      const data = recordsData.records.map((record, index) => ({
+        page: `页面${index + 1}`,
+        text1: record.mainTitle || "",
+        text2: record.subTitle || "",
+      }));
+
+      // 使用新的稿定设计格式生成 ZIP
+      const zipBlob = await createGaodingZip(data, ["页面", "文本_1"]);
+
       // 下载
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
