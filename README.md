@@ -43,6 +43,30 @@
    - 在本工具上传 ZIP 文件
    - 系统自动解析并回传到飞书
 
+## 快速部署
+
+### Railway 部署（推荐）
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template)
+
+1. 点击上方按钮或访问 [railway.app](https://railway.app)
+2. 从 GitHub 导入此仓库
+3. 添加 MySQL 数据库服务
+4. 配置环境变量
+5. 完成部署
+
+详细步骤请参考 [Railway 部署指南](./docs/RAILWAY_DEPLOY.md)。
+
+### 环境变量配置
+
+| 变量名 | 必需 | 说明 |
+|--------|------|------|
+| `DATABASE_URL` | ✅ | MySQL 连接字符串 |
+| `JWT_SECRET` | ✅ | JWT 签名密钥（32+ 字符） |
+| `VITE_APP_ID` | ✅ | OAuth 应用 ID |
+| `OAUTH_SERVER_URL` | ✅ | OAuth 服务器地址 |
+| `VITE_OAUTH_PORTAL_URL` | ✅ | OAuth 登录页面 |
+
 ## 本地开发
 
 ### 环境要求
@@ -51,39 +75,39 @@
 - pnpm 8+
 - MySQL 数据库
 
-### 安装依赖
+### 快速开始
 
 ```bash
+# 克隆仓库
+git clone https://github.com/YOUR_USERNAME/feishu-gaoding-web.git
+cd feishu-gaoding-web
+
+# 安装依赖
 pnpm install
-```
 
-### 配置环境变量
-
-复制 `.env.example` 为 `.env` 并填写配置：
-
-```bash
+# 配置环境变量
 cp .env.example .env
-```
+# 编辑 .env 文件
 
-详细配置说明请参考 [部署手册](./docs/DEPLOYMENT.md)。
-
-### 数据库迁移
-
-```bash
+# 数据库迁移
 pnpm db:push
-```
 
-### 启动开发服务器
-
-```bash
+# 启动开发服务器
 pnpm dev
 ```
 
 访问 http://localhost:3000
 
-## 部署
+详细本地开发说明请参考 [本地开发指南](./docs/LOCAL_SETUP.md)。
 
-详细部署说明请参考 [部署手册](./docs/DEPLOYMENT.md)。
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [本地开发指南](./docs/LOCAL_SETUP.md) | 本地环境搭建详细步骤 |
+| [部署手册](./docs/DEPLOYMENT.md) | 通用部署说明 |
+| [Railway 部署指南](./docs/RAILWAY_DEPLOY.md) | Railway 平台部署步骤 |
+| [环境变量说明](./docs/ENV_CONFIG.md) | 环境变量详细配置 |
 
 ## 项目结构
 
@@ -104,8 +128,9 @@ pnpm dev
 ├── drizzle/                # 数据库 Schema
 │   └── schema.ts
 ├── shared/                 # 前后端共享代码
-└── docs/                   # 文档
-    └── DEPLOYMENT.md       # 部署手册
+├── docs/                   # 文档
+├── railway.toml            # Railway 部署配置
+└── nixpacks.toml           # Nixpacks 构建配置
 ```
 
 ## 飞书权限配置
