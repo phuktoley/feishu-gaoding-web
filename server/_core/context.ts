@@ -15,11 +15,9 @@ export async function createContext(
 
   try {
     user = await sdk.authenticateRequest(opts.req);
-    console.log("[Auth] User authenticated:", user.openId);
   } catch (error) {
     // Authentication is optional for public procedures.
     // In production, if no user is found, we provide a default guest user to allow standalone usage.
-    console.log("[Auth] Authentication failed, providing guest user");
     user = {
       id: 1,
       openId: "guest",
