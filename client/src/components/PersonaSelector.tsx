@@ -76,18 +76,20 @@ export default function PersonaSelector({
     }
   }, [userId]);
 
-  // 从小红书应用拉取人设列表
+  // 从小红书应用拉取人设列表 (V4.2: 使用REST API)
   const fetchPersonas = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${xhsApiUrl}/api/trpc/persona.listByUserId?input=${encodeURIComponent(JSON.stringify({ userId }))}`);
+      const response = await fetch(`${xhsApiUrl}/api/public/personas?userId=${userId}`);
       const data = await response.json();
       
-      if (data.result?.data) {
-        setPersonas(data.result.data);
-        if (data.result.data.length === 0) {
+      if (data.success && Array.isArray(data.data)) {
+        setPersonas(data.data);
+        if (data.data.length === 0) {
           toast.info("未找到配置了飞书的人设，请先在小红书应用中配置");
         }
+      } else if (data.error) {
+        throw new Error(data.error);
       } else {
         throw new Error("Invalid response format");
       }
@@ -99,7 +101,7 @@ export default function PersonaSelector({
     }
   };
 
-  // 获取完整的飞书配置（包含appSecret）
+  // 获取完整的飞书配置（包含appSecret）(V4.2: 使用REST API)
   const fetchFullConfig = async (personaId: number): Promise<{
     appId: string;
     appSecret: string;
@@ -107,11 +109,11 @@ export default function PersonaSelector({
     tableId: string;
   } | null> => {
     try {
-      const response = await fetch(`${xhsApiUrl}/api/trpc/persona.getFeishuConfig?input=${encodeURIComponent(JSON.stringify({ personaId, userId }))}`);
+      const response = await fetch(`${xhsApiUrl}/api/public/persona/${personaId}/feishu-config?userId=${userId}`);
       const data = await response.json();
       
-      if (data.result?.data) {
-        return data.result.data;
+      if (data.success && data.data) {
+        return data.data;
       }
       return null;
     } catch (error) {
